@@ -6,6 +6,7 @@ import * as d3 from 'd3'
 function App() {
   const [data, setData] = useState(null)
   const svgRef = useRef();
+  const legendRef = useRef();
   
 useEffect(() => {
 async function fetchData() {
@@ -47,7 +48,7 @@ useEffect(() => {
 
     const colorScale = d3.scaleOrdinal()
     .domain(root.children.map(d => d.data.name))
-    .range(d3.schemeCategory10)
+    .range(d3.schemeCategory10l)
 
     const leaf = svg.selectAll('g')
      .data(treemap.leaves())
@@ -100,12 +101,49 @@ useEffect(() => {
 
   }, [data])
 
+  useEffect(() => {
+    if (!data) return;
+    const width = 1100;
+    const legendHeight = 100;
+
+    const legendSvg = d3.select('.legend')
+     .attr('width', width)
+     .attr('height', legendHeight)
+     .attr('id', 'legend')
+
+     const categories = data.children.map(d => d.name);
+     const itemWidth = width / categories.length;
+     const color = d3.scaleOrdinal()
+      .domain(categories)
+      .range(d3.schemeCategory10)
+
+     const legendItem = legendSvg.selectAll('.legend-item')
+      .data(categories)
+      .join('g')
+      .attr('class', 'legend-item')
+      .attr('transform', (d, i) => `translate(${i * itemWidth + 10}, 20)`);
+
+    legendItem.append('rect')
+     .attr('class', 'legend-item')
+     .attr('width', 15)
+     .attr('height', 15)
+     .attr('fill', d => color(d));
+
+     legendItem.append('text')
+      .attr('x', 20)
+      .attr('y', 10)
+      .text(d => d)
+      .style('font-size', '12px')
+
+   }, [data])
+
+
   return (
     <> 
     <h1 id="title">Movie Sales</h1>
     <h2 id="description">Top 95 Highest Revenue Movies Grouped by Genre</h2>
     <svg ref={svgRef} className="treemap"></svg> 
-    <svg className="legend"></svg>
+    <svg className="legend" ref={legendRef}></svg>
     </>
   )
 }
