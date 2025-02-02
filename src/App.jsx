@@ -48,7 +48,7 @@ useEffect(() => {
 
     const colorScale = d3.scaleOrdinal()
     .domain(root.children.map(d => d.data.name))
-    .range(d3.schemeCategory10l)
+    .range(d3.schemeCategory10)
 
     const leaf = svg.selectAll('g')
      .data(treemap.leaves())
@@ -103,40 +103,51 @@ useEffect(() => {
 
   useEffect(() => {
     if (!data) return;
+    
+    // Clear existing content
+    d3.select(legendRef.current).selectAll('*').remove();
+    
     const width = 1100;
     const legendHeight = 100;
+    
+    const legendSvg = d3.select(legendRef.current)
+      .attr('width', width)
+      .attr('height', legendHeight)
+      .attr('id', 'legend');
+      
+    const categories = data.children.map(d => d.name);
+    const itemWidth = 150; // Fixed width per item
 
-    const legendSvg = d3.select('.legend')
-     .attr('width', width)
-     .attr('height', legendHeight)
-     .attr('id', 'legend')
-
-     const categories = data.children.map(d => d.name);
-     const itemWidth = width / categories.length;
-     const color = d3.scaleOrdinal()
-      .domain(categories)
-      .range(d3.schemeCategory10)
-
-     const legendItem = legendSvg.selectAll('.legend-item')
+    const colorScale = d3.scaleOrdinal()
+    .domain(categories)
+    .range(d3.schemeCategory10);
+    
+    // Create container group
+    const legendGroup = legendSvg
+      .append('g')
+      .attr('transform', 'translate(10, 20)');
+    
+    // Create legend items
+    const items = legendGroup
+      .selectAll('g')
       .data(categories)
       .join('g')
-      .attr('class', 'legend-item')
-      .attr('transform', (d, i) => `translate(${i * itemWidth + 10}, 20)`);
-
-    legendItem.append('rect')
-     .attr('class', 'legend-item')
-     .attr('width', 15)
-     .attr('height', 15)
-     .attr('fill', d => color(d));
-
-     legendItem.append('text')
+      .attr('transform', (d, i) => `translate(${i * itemWidth}, 0)`);
+    
+    // Add colored rectangles
+    items.append('rect')
+      .attr('width', 15)
+      .attr('height', 15)
+      .attr('fill', d => colorScale(d));
+    
+    // Add text labels
+    items.append('text')
       .attr('x', 20)
-      .attr('y', 10)
+      .attr('y', 12)
       .text(d => d)
-      .style('font-size', '12px')
-
-   }, [data])
-
+      .style('font-size', '12px');
+      
+  }, [data]);
 
   return (
     <> 
