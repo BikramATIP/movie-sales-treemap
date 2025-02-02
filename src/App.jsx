@@ -7,7 +7,7 @@ const revenueFormat = d3.format('$,.2f');
 
 function App() {
   const [data, setData] = useState(null);
-  const [originalTotal, setOriginalTotal] = useState(0); // Add state for originalTotal
+  const [originalTotal, setOriginalTotal] = useState(0); 
   const svgRef = useRef();
   const legendRef = useRef();
 
@@ -19,7 +19,6 @@ function App() {
           const data = await res.json();
           setData(data);
 
-          // Calculate originalTotal when data is fetched
           const total = data.children.reduce((acc, category) => 
             acc + category.children.reduce((acc2, movie) => acc2 + movie.value, 0), 0
           );
@@ -38,11 +37,11 @@ function App() {
     const width = 1100;
     const height = 600;
     const totalArea = width * height;
-    const SCALE = 1000; // Scaling factor
+    const SCALE = 1000; 
 
-    // Use scaled values for layout
+
     const root = d3.hierarchy(data)
-      .sum(d => d.value ? Math.round(d.value * SCALE) : 0) // Scale to integers
+      .sum(d => d.value ? Math.round(d.value * SCALE) : 0) 
       .sort((a, b) => b.value - a.value);
 
     const treemap = d3.treemap()
@@ -51,10 +50,9 @@ function App() {
       .round(false)
       (root);
 
-    // Area verification (using original values)
     treemap.leaves().forEach(d => {
       const area = (d.x1 - d.x0) * (d.y1 - d.y0);
-      const expectedArea = (d.data.value / originalTotal) * totalArea; // Use originalTotal
+      const expectedArea = (d.data.value / originalTotal) * totalArea; 
       console.log('Area ratio:', area / expectedArea);
     });
 
@@ -63,7 +61,6 @@ function App() {
       .style('width', width)
       .style('border', '1px solid black');
 
-    // Append tiles with original data-value
     const leaf = svg.selectAll('g')
       .data(treemap.leaves())
       .join('g')
@@ -73,14 +70,34 @@ function App() {
       .domain(data.children.map(d => d.name))
       .range(d3.schemeCategory10);
 
+    const tooltip = d3.select('body').append('div')
+      .attr('id', 'tooltip')
+      .style('position', 'absolute')
+      .style('visibility', 'hidden')
+      .style('background-color', 'white')
+      .style('border', '1px solid black')
+      .style('padding', '5px');
+
     leaf.append('rect')
       .attr('class', 'tile')
       .attr('width', d => d.x1 - d.x0)
       .attr('height', d => d.y1 - d.y0)
       .attr('data-name', d => d.data.name)
       .attr('data-category', d => d.data.category)
-      .attr('data-value', d => d.data.value) // Use original value
-      .attr('fill', d => colorScale(d.data.category));
+      .attr('data-value', d => d.data.value) 
+      .attr('fill', d => colorScale(d.data.category))
+      .on('mouseover', (event, d) => {
+        tooltip.style('visibility', 'visible')
+          .html(
+            `Name: ${d.data.name}<br>Category: ${d.data.category}<br>Value: ${revenueFormat(d.data.value)}`
+          )
+          .attr('data-value', d.data.value)
+          .style('left', event.pageX + 10 + 'px')
+          .style('top', event.pageY - 28 + 'px');
+      })
+      .on('mouseout', () => {
+        tooltip.style('visibility', 'hidden');
+      });
 
       leaf.append('text')
   .attr('text-anchor', 'middle')
@@ -89,7 +106,6 @@ function App() {
     const width = Math.abs(d.x1 - d.x0);
     const height = Math.abs(d.y1 - d.y0);
     const text = d.data.name;
-    const epsilon = 1e-10;
     
     const words = text.split(' ');
     const lines = [];
