@@ -2,62 +2,84 @@ import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import * as d3 from 'd3'
 
+const revenueFormat = d3.format('$,.2f');
+
 
 function App() {
-  const [data, setData] = useState(null)
+  const [data, setData] = useState(null);
+  const [originalTotal, setOriginalTotal] = useState(0); // Add state for originalTotal
   const svgRef = useRef();
   const legendRef = useRef();
-  
-useEffect(() => {
-async function fetchData() {
-  try {
-   const res = await fetch('https://cdn.freecodecamp.org/testable-projects-fcc/data/tree_map/movie-data.json')
-   if (res.ok) {
-    const data = await res.json()
-    setData(data)
-    console.log(data)
-   }
-  } catch (error) {
-    console.error("There was an error: ", error)
-  }
-}
-fetchData();
-}, [])
 
-useEffect(() => {
-  if (!data) return;
-  const width = 1100;
-  const height = 600;
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch('https://cdn.freecodecamp.org/testable-projects-fcc/data/tree_map/movie-data.json');
+        if (res.ok) {
+          const data = await res.json();
+          setData(data);
 
-  const svg = d3.select(svgRef.current)
-   .style('height', height)
-   .style('width', width)
-   .style('border', '1px solid black')
-   
-   const root = d3.hierarchy(data)
-    .sum(d => d.value)
-    .sort((a, b) => b.value - a.value)
-   
-   const treemap = d3.treemap()
-    .size([width, height])
-    .padding(1)
-    (root)
+          // Calculate originalTotal when data is fetched
+          const total = data.children.reduce((acc, category) => 
+            acc + category.children.reduce((acc2, movie) => acc2 + movie.value, 0), 0
+          );
+          setOriginalTotal(total);
+        }
+      } catch (error) {
+        console.error("There was an error: ", error);
+      }
+    }
+    fetchData();
+  }, []);
 
-    console.log("treemap leaves: ", treemap.leaves())
-    console.log("root leaves: ", root.leaves())
+  useEffect(() => {
+    if (!data || !originalTotal) return;
 
-    const colorScale = d3.scaleOrdinal()
-    .domain(root.children.map(d => d.data.name))
-    .range(d3.schemeCategory10)
+    const width = 1100;
+    const height = 600;
+    const totalArea = width * height;
+    const SCALE = 1000; // Scaling factor
 
+    // Use scaled values for layout
+    const root = d3.hierarchy(data)
+      .sum(d => d.value ? Math.round(d.value * SCALE) : 0) // Scale to integers
+      .sort((a, b) => b.value - a.value);
+
+    const treemap = d3.treemap()
+      .size([width, height])
+      .padding(0)
+      .round(false)
+      (root);
+
+    // Area verification (using original values)
+    treemap.leaves().forEach(d => {
+      const area = (d.x1 - d.x0) * (d.y1 - d.y0);
+      const expectedArea = (d.data.value / originalTotal) * totalArea; // Use originalTotal
+      console.log('Area ratio:', area / expectedArea);
+    });
+
+    const svg = d3.select(svgRef.current)
+      .style('height', height)
+      .style('width', width)
+      .style('border', '1px solid black');
+
+    // Append tiles with original data-value
     const leaf = svg.selectAll('g')
-     .data(treemap.leaves())
-     .join('g')
-     .attr('transform', d => `translate(${d.x0},${d.y0})`);
+      .data(treemap.leaves())
+      .join('g')
+      .attr('transform', d => `translate(${d.x0},${d.y0})`);
 
-     leaf.append('rect')
+      const colorScale = d3.scaleOrdinal()
+      .domain(data.children.map(d => d.name))
+      .range(d3.schemeCategory10);
+
+    leaf.append('rect')
+      .attr('class', 'tile')
       .attr('width', d => d.x1 - d.x0)
       .attr('height', d => d.y1 - d.y0)
+      .attr('data-name', d => d.data.name)
+      .attr('data-category', d => d.data.category)
+      .attr('data-value', d => d.data.value) // Use original value
       .attr('fill', d => colorScale(d.data.category));
 
       leaf.append('text')
@@ -67,8 +89,8 @@ useEffect(() => {
     const width = Math.abs(d.x1 - d.x0);
     const height = Math.abs(d.y1 - d.y0);
     const text = d.data.name;
+    const epsilon = 1e-10;
     
-    // Split into words and create lines
     const words = text.split(' ');
     const lines = [];
     let currentLine = words[0];
@@ -97,14 +119,13 @@ useEffect(() => {
       .text(d => d)
       .style('font-size', fontSize + 'px')
       .attr('fill', 'white');
-  });
-
+  })
+   
   }, [data])
 
   useEffect(() => {
     if (!data) return;
     
-    // Clear existing content
     d3.select(legendRef.current).selectAll('*').remove();
     
     const width = 1100;
@@ -116,31 +137,28 @@ useEffect(() => {
       .attr('id', 'legend');
       
     const categories = data.children.map(d => d.name);
-    const itemWidth = 150; // Fixed width per item
+    const itemWidth = 150;
 
     const colorScale = d3.scaleOrdinal()
     .domain(categories)
     .range(d3.schemeCategory10);
     
-    // Create container group
     const legendGroup = legendSvg
       .append('g')
       .attr('transform', 'translate(10, 20)');
     
-    // Create legend items
     const items = legendGroup
       .selectAll('g')
       .data(categories)
       .join('g')
       .attr('transform', (d, i) => `translate(${i * itemWidth}, 0)`);
     
-    // Add colored rectangles
     items.append('rect')
       .attr('width', 15)
+      .attr('class', 'legend-item')
       .attr('height', 15)
       .attr('fill', d => colorScale(d));
-    
-    // Add text labels
+
     items.append('text')
       .attr('x', 20)
       .attr('y', 12)
